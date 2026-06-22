@@ -6,7 +6,6 @@ import { useNavigate } from "react-router-dom";
 
 const Settings = () => {
   const [user] = useAuthState(auth);
-  const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [newFullname, setNewFullname] = useState("");
   const [newRole, setNewRole] = useState("");
@@ -25,7 +24,6 @@ const Settings = () => {
         const userDoc = await getDoc(doc(db, "users", user.uid));
         if (userDoc.exists()) {
           const data = userDoc.data();
-          setUserData(data);
           setNewFullname(data.fullname || "");
           setNewRole(data.role || "");
         } else {

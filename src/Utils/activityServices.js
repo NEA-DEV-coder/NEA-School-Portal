@@ -1,9 +1,18 @@
+import {
+  addDoc,
+  collection,
+  getDocs,
+  orderBy,
+  query,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
 import { db } from "../firebase";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 export const logActivity = async (userId, description) => {
   try {
-    await addDoc(collection(db, "users", userId, "activities"), {
+    await addDoc(collection(db, "activities"), {
+      userId,
       description,
       timestamp: serverTimestamp(),
     });
@@ -12,15 +21,18 @@ export const logActivity = async (userId, description) => {
   }
 };
 
-// Get recent activities
 export const getUserActivities = async (userId) => {
   try {
-    const activitiesRef = collection(db, "users", userId, "activities");
-    const q = query(activitiesRef, orderBy("timestamp", "desc"));
+    const q = query(
+      collection(db, "activities"),
+      where("userId", "==", userId),
+      orderBy("timestamp", "desc"),
+    );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
+
+    return querySnapshot.docs.map((docSnapshot) => ({
+      id: docSnapshot.id,
+      ...docSnapshot.data(),
     }));
   } catch (error) {
     console.error("Error fetching activities:", error);

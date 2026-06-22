@@ -1,7 +1,8 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth, db } from "../firebase";
 import { doc, onSnapshot } from "firebase/firestore";
+import { auth, db } from "../firebase";
 
 const AuthContext = createContext();
 
@@ -17,11 +18,12 @@ export const AuthProvider = ({ children }) => {
       if (user) {
         setCurrentUser(user);
 
-        // Start listening to Firestore user document
         const userRef = doc(db, "users", user.uid);
         unsubscribeUser = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists()) {
             setUserData(docSnap.data());
+          } else {
+            setUserData(null);
           }
         });
       } else {
@@ -32,7 +34,6 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
-    // Proper cleanup for both listeners
     return () => {
       unsubscribeAuth();
       if (unsubscribeUser) unsubscribeUser();
@@ -45,7 +46,18 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ currentUser, userData, logout }}>
-      {!loading && children}
+      {loading ? (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center">
+            <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
+            <p className="mt-3 text-sm text-gray-600">
+              Checking your session...
+            </p>
+          </div>
+        </div>
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 };

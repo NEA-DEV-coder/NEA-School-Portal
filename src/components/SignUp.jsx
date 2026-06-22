@@ -1,13 +1,13 @@
 import { useState } from "react";
-import homepageBg from "../assets/School-bg.jpg";
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
 } from "firebase/auth";
-import { auth, db } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
+import { Info, UserPlus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { UserPlus, Info } from "lucide-react";
+import homepageBg from "../assets/School-bg.jpg";
+import { auth, db } from "../firebase";
 
 const SignUp = () => {
   const [formData, setFormData] = useState({
@@ -26,59 +26,87 @@ const SignUp = () => {
 
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const navigate = useNavigate();
 
-  // Handle input changes
-  function handleChange(e) {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setErrors({ ...errors, [e.target.name]: "" });
-  }
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
+  };
 
-  // Handle sign up
   const handleSignUp = async (e) => {
     e.preventDefault();
     setErrors({});
-    setLoading(true);
 
     const { fullname, email, password, confirmPassword, role } = formData;
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const newErrors = {};
 
-    if (password !== confirmPassword) {
-      setErrors({ confirmPassword: "Passwords do not match" });
-      setLoading(false);
+    if (!fullname.trim()) newErrors.fullname = "Full name is required";
+    if (!emailPattern.test(email.trim()))
+      newErrors.email = "Enter a valid email";
+    if (password.length < 6)
+      newErrors.password = "Password must be at least 6 characters";
+    if (password !== confirmPassword)
+      newErrors.confirmPassword = "Passwords do not match";
+
+    if (role === "Student") {
+      if (!formData.department.trim())
+        newErrors.department = "Department is required";
+      if (!formData.level.trim()) newErrors.level = "Level is required";
+      if (!formData.studentId.trim())
+        newErrors.studentId = "Student ID is required";
+    } else if (role === "Staff") {
+      if (!formData.department.trim())
+        newErrors.department = "Department is required";
+      if (!formData.staffId.trim()) newErrors.staffId = "Staff ID is required";
+      if (!formData.position.trim())
+        newErrors.position = "Position is required";
+    } else if (role === "Admin" && !formData.adminId.trim()) {
+      newErrors.adminId = "Admin ID is required";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
+    setLoading(true);
+
     try {
-      // Create user
       const userCredentials = await createUserWithEmailAndPassword(
         auth,
-        email,
-        password
+        email.trim(),
+        password,
       );
       const user = userCredentials.user;
 
-      // Save user info in Firestore
       await setDoc(doc(db, "users", user.uid), {
-        fullname,
-        email,
+        fullname: fullname.trim(),
+        email: email.trim(),
         role,
-        password,
-        department: formData.department || null,
-        level: formData.level || null,
-        studentId: formData.studentId || null,
-        staffId: formData.staffId || null,
-        position: formData.position || null,
-        adminId: formData.adminId || null,
+        department: formData.department.trim() || null,
+        level: formData.level.trim() || null,
+        studentId: formData.studentId.trim() || null,
+        staffId: formData.staffId.trim() || null,
+        position: formData.position.trim() || null,
+        adminId: formData.adminId.trim() || null,
         createdAt: new Date(),
       });
 
       await sendEmailVerification(user);
-      setMessage("✅ Account created successfully.");
-      navigate("/login");
+      setShowSuccessModal(true);
+
+      setTimeout(() => {
+        setShowSuccessModal(false);
+        navigate("/login", { replace: true });
+      }, 2000);
     } catch (err) {
-      console.error("Signup Error:", err.message);
-      setErrors({ general: err.message });
+      setErrors({
+        general:
+          err.message || "Something went wrong while creating your account.",
+      });
     } finally {
       setLoading(false);
     }
@@ -89,218 +117,243 @@ const SignUp = () => {
       className="min-h-screen bg-center flex justify-center items-center"
       style={{ backgroundImage: `url(${homepageBg})` }}
     >
-      {message && (
-        <div
-          className="absolute bg-black/30 inset-0 backdrop-blur-sm z-10
-        transition-all duration-300"
-        ></div>
-      )}
-      {message && (
-        <div
-          className="absolute bg-green-300 z-20 text-gray-700 border border-gray-300
-        px-6 py-4 rounded-lg shadow-lg text-center animate-fade-in"
-        >
-          <p>{message}</p>
+      {showSuccessModal && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 text-center shadow-2xl">
+            <h3 className="text-xl font-semibold text-green-700">
+              Signup Completed
+            </h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Your account has been created successfully.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setShowSuccessModal(false);
+                navigate("/login", { replace: true });
+              }}
+              className="mt-4 w-full rounded bg-[#0f9c37] px-4 py-2 font-semibold text-white hover:bg-[#106e1d]"
+            >
+              Go to Sign In
+            </button>
+          </div>
         </div>
       )}
+
       <form
         onSubmit={handleSignUp}
-        className="w-full mx-5 max-w-md bg-white p-8 mt-5 text-gray-900 rounded shadow-2xl"
+        className="mx-5 mt-5 w-full max-w-md rounded bg-white p-8 text-gray-900 shadow-2xl"
       >
-        <h2 className="text-center mb-1 font-bold uppercase text-xl">
+        <h2 className="text-center text-xl font-bold uppercase">
           Admission Portal
         </h2>
 
-        <div className="bg-[#ffaa33] mb-8 shadow-md border-l-[#ff9500] border-l-4 px-4 py-4 flex gap-5 items-center rounded-md">
+        <div className="mb-8 mt-3 flex items-center gap-5 rounded-md border-l-4 border-l-[#ff9500] bg-[#ffaa33] px-4 py-4 shadow-md">
           <span className="text-[#663c00]">
             <Info size={50} />
           </span>
           <div>
-            <h4 className="text-2xl lg:text-lg mb-3 font-semibold">Notice:</h4>
+            <h4 className="mb-3 text-2xl font-semibold lg:text-lg">Notice:</h4>
             <p className="text-[12px] text-[#8e580d]">
-              Sign up with your information as shown on your certificate
+              Sign up with your information as shown on your certificate.
             </p>
           </div>
         </div>
 
-        <h2 className="text-xl uppercase font-semibold mb-2 text-center">
+        <h2 className="mb-2 text-center text-xl font-semibold uppercase">
           Create Account
         </h2>
 
-        {/* Full Name */}
-        <label className="block mb-1">Full Name</label>
+        {errors.general && (
+          <p className="mb-2 text-sm text-red-500">{errors.general}</p>
+        )}
+
+        <label className="mb-1 block">Full Name</label>
         <input
           onChange={handleChange}
           value={formData.fullname}
           name="fullname"
-          className="w-full text-red-700 text-sm py-1 px-2 rounded mb-2 border border-gray-700"
+          className="mb-2 w-full rounded border border-gray-700 px-2 py-1 text-sm text-red-700"
           type="text"
           placeholder="Enter Full Name"
-          required
         />
+        {errors.fullname && (
+          <p className="mb-2 text-sm text-red-500">{errors.fullname}</p>
+        )}
 
-        {/* Email */}
-        <label className="block mb-1">Email Address</label>
+        <label className="mb-1 block">Email Address</label>
         <input
           value={formData.email}
           onChange={handleChange}
           name="email"
-          className="w-full text-red-700 py-1 px-2 rounded mb-2 border border-gray-700"
+          className="mb-2 w-full rounded border border-gray-700 px-2 py-1 text-red-700"
           type="email"
           placeholder="Enter Email"
-          required
         />
+        {errors.email && (
+          <p className="mb-2 text-sm text-red-500">{errors.email}</p>
+        )}
 
-        {/* Password */}
-        <label className="block mb-1">Create Password</label>
+        <label className="mb-1 block">Create Password</label>
         <input
           onChange={handleChange}
           name="password"
           value={formData.password}
-          className="w-full text-red-700 px-2 py-1 rounded mb-2 border border-gray-700"
+          className="mb-2 w-full rounded border border-gray-700 px-2 py-1 text-red-700"
           type="password"
           placeholder="Create New Password"
-          required
         />
+        {errors.password && (
+          <p className="mb-2 text-sm text-red-500">{errors.password}</p>
+        )}
 
-        {/* Confirm Password */}
-        <label className="block mb-1">Confirm Password</label>
+        <label className="mb-1 block">Confirm Password</label>
         <input
           onChange={handleChange}
           value={formData.confirmPassword}
           name="confirmPassword"
-          className="w-full text-red-700 py-1 px-2 rounded mb-2 border border-gray-700"
+          className="mb-2 w-full rounded border border-gray-700 px-2 py-1 text-red-700"
           type="password"
           placeholder="Confirm Password"
-          required
         />
         {errors.confirmPassword && (
           <p className="mb-2 text-sm text-red-500">{errors.confirmPassword}</p>
         )}
 
-        {/* Role */}
-        <label className="block mb-1">Role</label>
+        <label className="mb-1 block">Role</label>
         <select
           value={formData.role}
           name="role"
           onChange={handleChange}
-          className="w-full text-gray-700 py-1 px-2 rounded mb-2 border border-gray-700"
+          className="mb-2 w-full rounded border border-gray-700 px-2 py-1 text-gray-700"
         >
           <option value="Student">Student</option>
           <option value="Staff">Staff</option>
           <option value="Admin">Admin</option>
         </select>
 
-        {/* Dynamic Fields Based on Role */}
         {formData.role === "Student" && (
           <>
-            <label className="block mb-1">Department</label>
+            <label className="mb-1 block">Department</label>
             <input
               name="department"
               onChange={handleChange}
               value={formData.department}
-              className="w-full text-red-700 py-1 px-2 rounded mb-2 border border-gray-700"
+              className="mb-2 w-full rounded border border-gray-700 px-2 py-1 text-red-700"
               placeholder="Enter Department"
-              required
             />
+            {errors.department && (
+              <p className="mb-2 text-sm text-red-500">{errors.department}</p>
+            )}
 
-            <label className="block mb-1">Level</label>
+            <label className="mb-1 block">Level</label>
             <input
               name="level"
               onChange={handleChange}
               value={formData.level}
-              className="w-full text-red-700 py-1 px-2 rounded mb-2 border border-gray-700"
+              className="mb-2 w-full rounded border border-gray-700 px-2 py-1 text-red-700"
               placeholder="Enter Level"
-              required
             />
+            {errors.level && (
+              <p className="mb-2 text-sm text-red-500">{errors.level}</p>
+            )}
 
-            <label className="block mb-1">Student ID</label>
+            <label className="mb-1 block">Student ID</label>
             <input
               name="studentId"
               onChange={handleChange}
               value={formData.studentId}
-              className="w-full text-red-700 py-1 px-2 rounded mb-2 border border-gray-700"
+              className="mb-2 w-full rounded border border-gray-700 px-2 py-1 text-red-700"
               placeholder="Enter Student ID"
-              required
             />
+            {errors.studentId && (
+              <p className="mb-2 text-sm text-red-500">{errors.studentId}</p>
+            )}
           </>
         )}
 
         {formData.role === "Staff" && (
           <>
-            <label className="block mb-1">Department</label>
+            <label className="mb-1 block">Department</label>
             <input
               name="department"
               onChange={handleChange}
               value={formData.department}
-              className="w-full text-red-700 py-1 px-2 rounded mb-2 border border-gray-700"
+              className="mb-2 w-full rounded border border-gray-700 px-2 py-1 text-red-700"
               placeholder="Enter Department"
-              required
             />
+            {errors.department && (
+              <p className="mb-2 text-sm text-red-500">{errors.department}</p>
+            )}
 
-            <label className="block mb-1">Staff ID</label>
+            <label className="mb-1 block">Staff ID</label>
             <input
               name="staffId"
               onChange={handleChange}
               value={formData.staffId}
-              className="w-full text-red-700 py-1 px-2 rounded mb-2 border border-gray-700"
+              className="mb-2 w-full rounded border border-gray-700 px-2 py-1 text-red-700"
               placeholder="Enter Staff ID"
-              required
             />
+            {errors.staffId && (
+              <p className="mb-2 text-sm text-red-500">{errors.staffId}</p>
+            )}
 
-            <label className="block mb-1">Position</label>
+            <label className="mb-1 block">Position</label>
             <input
               name="position"
               onChange={handleChange}
               value={formData.position}
-              className="w-full text-red-700 py-1 px-2 rounded mb-2 border border-gray-700"
+              className="mb-2 w-full rounded border border-gray-700 px-2 py-1 text-red-700"
               placeholder="Enter Position"
-              required
             />
+            {errors.position && (
+              <p className="mb-2 text-sm text-red-500">{errors.position}</p>
+            )}
           </>
         )}
 
         {formData.role === "Admin" && (
           <>
-            <label className="block mb-1">Admin ID</label>
+            <label className="mb-1 block">Admin ID</label>
             <input
               name="adminId"
               onChange={handleChange}
               value={formData.adminId}
-              className="w-full text-red-700 py-1 px-2 rounded mb-2 border border-gray-700"
+              className="mb-2 w-full rounded border border-gray-700 px-2 py-1 text-red-700"
               placeholder="Enter Admin ID"
-              required
             />
+            {errors.adminId && (
+              <p className="mb-2 text-sm text-red-500">{errors.adminId}</p>
+            )}
           </>
         )}
 
-        {/* Submit */}
         <button
           type="submit"
           disabled={loading}
-          className={`w-full py-1 px-2 rounded mt-5 transition duration-500 ease-in-out text-white ${
+          className={`mt-5 w-full rounded px-2 py-1 text-white transition duration-500 ease-in-out ${
             loading
-              ? "bg-[#0f9c37] cursor-not-allowed"
-              : "bg-[#0f9c37] hover:bg-[#106e1d] font-bold"
+              ? "cursor-not-allowed bg-[#0f9c37]"
+              : "bg-[#0f9c37] font-bold hover:bg-[#106e1d]"
           }`}
         >
           {loading ? "Creating Account..." : "Sign Up"}
         </button>
 
-        {/* Link to Login */}
-        <div className="flex justify-between items-center gap-5 mt-4">
+        <div className="mt-4 flex items-center justify-between gap-5">
           <p className="mt-4 text-center lg:text-sm">
             Already have an account?
           </p>
-          <div
+          <button
+            type="button"
             onClick={() => navigate("/login")}
-            className="flex items-center cursor-pointer w-full bg-[#17b6a4] rounded-lg py-2 px-2 justify-between"
+            className="flex w-full items-center justify-between rounded-lg bg-[#17b6a4] px-2 py-2"
           >
-            <button className="text-white text-lg font-bold">Sign In</button>
-            <span className="text-white font-bold">
+            <span className="text-lg font-bold text-white">Sign In</span>
+            <span className="font-bold text-white">
               <UserPlus />
             </span>
-          </div>
+          </button>
         </div>
       </form>
     </div>
