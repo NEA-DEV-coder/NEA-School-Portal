@@ -98,10 +98,8 @@ const SignUp = () => {
       await sendEmailVerification(user);
       setShowSuccessModal(true);
 
-      setTimeout(() => {
-        setShowSuccessModal(false);
-        navigate("/login", { replace: true });
-      }, 2000);
+      // Keep the modal visible until the user clicks the button.
+      // Navigation is handled by the modal's "Go to Sign In" action.
     } catch (err) {
       setErrors({
         general:
